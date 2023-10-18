@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Redis Module Cache and tracking """
+""" Redis Module """
 
 from functools import wraps
 import redis
