@@ -1,39 +1,33 @@
 #!/usr/bin/env python3
+"""use requests module to obtain the HTML content of a particular URL and returns it"""
 
-from functools import wraps
 import redis
-from requests import get
+import requests
 from typing import Callable
+from functools import wraps
 
 
-redis_client = redis.Redis()
+def access(method: Callable) -> Callable:
+    """decorator for get_page"""
+    @wraps(method)
+    def count(url: str) -> str:
+        """track how many times a particular URL was accessed"""
+        redis_client = redis.Redis()
+        redis_client.incr(f'count:{url}')
+        cached = redis_client.get(f'cached:{url}')
+        if cached:
+            return cached.decode('utf-8')
+        res = method(url)
+        redis_client.setex(f'cached:{url}', 10, res)
+        return res
+    return count
 
 
-def responsed_cached_or_not(fn: Callable) -> Callable:
-    """
-    A simple decorator to cache a http request in redis
-    """
-    @wraps(fn)
-    def wrapper(url):
-        """
-        The wrapper function which gets returned
-        by the decorator
-        """
-        redis_client.incr(f"count:{url}")
-        cached_response = redis_client.get(f"cached:{url}")
-        if cached_response:
-            return cached_response.decode('utf-8')
-        result = fn(url)
-        redis_client.setex(f"cached:{url}", 10, result)
-        return result
-
-    return wrapper
-
-
-@responsed_cached_or_not
+@access
 def get_page(url: str) -> str:
-    """
-    A simple function to make http requests
-    to a certain endpoint
-    """
-    return get(url).text
+    """send request to url"""
+    return requests.get(url).text
+
+
+if __name__ == '__main__':
+    get_page('http://slowwly.robertomurray.co.uk')
